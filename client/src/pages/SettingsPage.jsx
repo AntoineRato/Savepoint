@@ -1,44 +1,46 @@
 import { useEffect, useState, useRef } from 'react';
 import { getSettings, saveSettings, exportGames, importGames, syncSteam } from '../api/client';
+import Toast from '../components/Toast';
 import styles from './SettingsPage.module.css';
 
 export default function SettingsPage() {
   const [form, setForm] = useState({ rawg_key: '', steam_key: '', steam_id: '' });
-  const [error, setError] = useState(null);
-  const [saved, setSaved] = useState(false);
-  const [importResult, setImportResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [toasts, setToasts] = useState([]);
   const fileRef = useRef(null);
+
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, message, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  };
 
   useEffect(() => {
     getSettings()
       .then((s) => setForm({ rawg_key: s.rawg_key ?? '', steam_key: s.steam_key ?? '', steam_id: s.steam_id ?? '' }))
-      .catch((err) => setError(err.message));
+      .catch((err) => addToast(err.message, 'error'));
   }, []);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaved(false);
     try {
       await saveSettings(form);
-      setSaved(true);
+      addToast('Paramètres sauvegardés.');
     } catch (err) {
-      setError(err.message);
+      addToast(err.message, 'error');
     }
   };
 
   const handleSteamSync = async () => {
     setSyncing(true);
-    setSyncMsg(null);
     try {
       const result = await syncSteam();
-      setSyncMsg(result.message);
+      addToast(result.message);
     } catch (err) {
-      setSyncMsg(`Erreur : ${err.message}`);
+      addToast(`Erreur : ${err.message}`, 'error');
     } finally {
       setSyncing(false);
     }
@@ -54,8 +56,9 @@ export default function SettingsPage() {
       a.download = `savepoint-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      addToast('Export terminé.');
     } catch (err) {
-      setError(err.message);
+      addToast(err.message, 'error');
     }
   };
 
@@ -66,9 +69,9 @@ export default function SettingsPage() {
       try {
         const games = JSON.parse(ev.target.result);
         const result = await importGames(games);
-        setImportResult(result);
+        addToast(`${result.imported} jeux importés, ${result.overwritten} écrasés.`);
       } catch (err) {
-        setError(err.message);
+        addToast(err.message, 'error');
       }
     };
     reader.readAsText(file);
@@ -82,8 +85,6 @@ export default function SettingsPage() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Paramètres</h1>
-      {error && <div className={styles.error}>{error}</div>}
-      {saved && <div className={styles.success}>Paramètres sauvegardés.</div>}
 
       {/* API Keys */}
       <div className={styles.section}>
@@ -114,7 +115,6 @@ export default function SettingsPage() {
             {syncing ? 'Synchronisation…' : 'Sync Steam'}
           </button>
         </div>
-        {syncMsg && <div className={styles.feedback}>{syncMsg}</div>}
       </div>
 
       <hr className={styles.divider} />
@@ -138,13 +138,9 @@ export default function SettingsPage() {
           <p>Glisser un fichier .json ici</p>
           <button type="button" onClick={() => fileRef.current.click()}>ou parcourir</button>
         </div>
-
-        {importResult && (
-          <div className={styles.feedback}>
-            {importResult.imported} jeux importés, {importResult.overwritten} écrasés.
-          </div>
-        )}
       </div>
+
+      <Toast toasts={toasts} />
     </div>
   );
 }

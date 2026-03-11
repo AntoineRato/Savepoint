@@ -4,6 +4,7 @@ import { getGames, getStats, deleteGame, syncSteam, refreshMetadata } from '../a
 import StatsPanel from '../components/StatsPanel';
 import GameCard from '../components/GameCard';
 import GameDetailSheet from '../components/GameDetailSheet';
+import Toast from '../components/Toast';
 import styles from './HomePage.module.css';
 
 const ALL_STATUSES = ['backlog', 'playing', 'completed', 'dropped'];
@@ -17,6 +18,13 @@ export default function HomePage() {
   const [removingIds, setRemovingIds] = useState(new Set());
   const [backlogBtnText, setBacklogBtnText] = useState('✦ IA Reco');
   const [fallbackPrompt, setFallbackPrompt] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, message, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatuses, setActiveStatuses] = useState(new Set(ALL_STATUSES));
@@ -75,7 +83,7 @@ export default function HomePage() {
         setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
         const st = await getStats();
         setStats(st);
-      } catch { /* ignore */ }
+      } catch (err) { addToast(err.message, 'error'); }
     }, 200);
   };
 
@@ -268,6 +276,8 @@ Recommande-moi mon prochain jeu.`;
         onEdit={(game) => { setSelectedGame(null); navigate(`/edit/${game.id}`); }}
         onDelete={handleDelete}
       />
+
+      <Toast toasts={toasts} />
     </div>
   );
 }
