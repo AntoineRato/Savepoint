@@ -1,0 +1,95 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.pill {
+  border-radius: 9999px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: 2px solid;
+  transition: background 150ms, color 150ms;
+  white-space: nowrap;
+  background: none;
+}
+
+.pill:active {
+  transform: scale(0.98);
+}
+
+/* Playing */
+.pillPlaying.active {
+  background: var(--status-playing);
+  color: #fff;
+  border-color: var(--status-playing);
+}
+
+.pillPlaying.inactive {
+  background: transparent;
+  color: var(--status-playing);
+  border-color: var(--status-playing);
+}
+
+/* Completed */
+.pillCompleted.active {
+  background: var(--status-completed);
+  color: #fff;
+  border-color: var(--status-completed);
+}
+
+.pillCompleted.inactive {
+  background: transparent;
+  color: var(--status-completed);
+  border-color: var(--status-completed);
+}
+
+/* Backlog */
+.pillBacklog.active {
+  background: var(--status-backlog);
+  color: #fff;
+  border-color: var(--status-backlog);
+}
+
+.pillBacklog.inactive {
+  background: transparent;
+  color: var(--status-backlog);
+  border-color: var(--status-backlog);
+}
+
+/* Dropped */
+.pillDropped.active {
+  background: var(--status-dropped);
+  color: #fff;
+  border-color: var(--status-dropped);
+}
+
+.pillDropped.inactive {
+  background: transparent;
+  color: var(--status-dropped);
+  border-color: var(--status-dropped);
+}
+
+.metrics {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: var(--space-2);
+  }
+
+  .metrics {
+    margin-left: 0;
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+}

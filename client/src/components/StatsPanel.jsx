@@ -1,25 +1,35 @@
-export default function StatsPanel({ stats }) {
-  if (!stats) return null;
-  return (
-    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
-      <StatBox label="Total" value={stats.total} />
-      <StatBox label="Playing" value={stats.by_status.playing} color="#2563eb" />
-      <StatBox label="Completed" value={stats.by_status.completed} color="#16a34a" />
-      <StatBox label="Backlog" value={stats.by_status.backlog} color="#6b7280" />
-      <StatBox label="Dropped" value={stats.by_status.dropped} color="#dc2626" />
-      {stats.avg_rating != null && <StatBox label="Avg Rating" value={`${stats.avg_rating}/100`} />}
-      {stats.total_hours != null && <StatBox label="Total Hours" value={`${stats.total_hours}h`} />}
-      <StatBox label="Completed This Year" value={stats.completed_this_year} />
-      <StatBox label="This Month" value={stats.completed_this_month} />
-    </div>
-  );
-}
+import styles from './StatsPanel.module.css';
 
-function StatBox({ label, value, color }) {
+const STATUSES = [
+  { value: 'playing', label: 'Playing', icon: '▶', cssClass: 'pillPlaying' },
+  { value: 'completed', label: 'Completed', icon: '✓', cssClass: 'pillCompleted' },
+  { value: 'backlog', label: 'Backlog', icon: '○', cssClass: 'pillBacklog' },
+  { value: 'dropped', label: 'Dropped', icon: '✕', cssClass: 'pillDropped' },
+];
+
+export default function StatsPanel({ stats, activeStatuses, onToggle }) {
+  if (!stats) return null;
+
   return (
-    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 16px', minWidth: 100, textAlign: 'center' }}>
-      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: color || '#111827' }}>{value}</div>
-      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>{label}</div>
+    <div className={styles.wrap}>
+      {STATUSES.map(s => {
+        const count = stats.by_status?.[s.value] || 0;
+        const isActive = activeStatuses?.has(s.value);
+        return (
+          <button
+            key={s.value}
+            className={`${styles.pill} ${styles[s.cssClass]} ${isActive ? styles.active : styles.inactive}`}
+            onClick={() => onToggle?.(s.value)}
+          >
+            {s.icon} {count} {s.label}
+          </button>
+        );
+      })}
+      <div className={styles.metrics}>
+        {stats.avg_rating != null && <span>Moy. {stats.avg_rating}</span>}
+        {stats.avg_rating != null && stats.total_hours != null && ' · '}
+        {stats.total_hours != null && <span>{stats.total_hours}h</span>}
+      </div>
     </div>
   );
 }
