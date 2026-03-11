@@ -1,13 +1,19 @@
 import { useState } from 'react';
+import styles from './GameForm.module.css';
 
-const STATUSES = ['backlog', 'playing', 'completed', 'dropped'];
+const STATUSES = [
+  { value: 'playing', label: 'Playing' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'backlog', label: 'Backlog' },
+  { value: 'dropped', label: 'Dropped' },
+];
 
 export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save', hideTitle = false }) {
   const [form, setForm] = useState({
     title: initial.title ?? '',
     genre: initial.genre ?? '',
     status: initial.status ?? 'backlog',
-    rating: initial.rating ?? '',
+    rating: initial.rating ?? 0,
     hours_played: initial.hours_played ?? '',
     date_started: initial.date_started ?? '',
     date_finished: initial.date_finished ?? '',
@@ -16,6 +22,7 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
     steam_app_id: initial.steam_app_id ?? '',
     rawg_id: initial.rawg_id ?? '',
   });
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -25,7 +32,7 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
       title: form.title,
       genre: form.genre || null,
       status: form.status,
-      rating: form.rating !== '' ? Number(form.rating) : null,
+      rating: form.rating !== '' && form.rating !== 0 ? Number(form.rating) : null,
       hours_played: form.hours_played !== '' ? Number(form.hours_played) : null,
       date_started: form.date_started || null,
       date_finished: form.date_finished || null,
@@ -33,7 +40,6 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
       cover_url: form.cover_url || null,
       steam_app_id: form.steam_app_id !== '' ? Number(form.steam_app_id) : null,
       rawg_id: form.rawg_id !== '' ? Number(form.rawg_id) : null,
-      // Enriched fields — passed through transparently, not editable in the form
       genres:       initial.genres       ?? null,
       tags:         initial.tags         ?? null,
       release_date: initial.release_date ?? null,
@@ -45,53 +51,100 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 480 }}>
+    <form onSubmit={handleSubmit} className={styles.form}>
       {!hideTitle && (
-        <Field label="Title *">
+        <label className={styles.field}>
+          Titre *
           <input required value={form.title} onChange={set('title')} />
-        </Field>
+        </label>
       )}
-      <Field label="Genre">
-        <input value={form.genre} onChange={set('genre')} />
-      </Field>
-      <Field label="Status">
-        <select value={form.status} onChange={set('status')}>
-          {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-        </select>
-      </Field>
-      <Field label="Rating (1–100)">
-        <input type="number" min="1" max="100" value={form.rating} onChange={set('rating')} />
-      </Field>
-      <Field label="Hours Played">
-        <input type="number" min="0" step="0.1" value={form.hours_played} onChange={set('hours_played')} />
-      </Field>
-      <Field label="Date Started">
-        <input type="date" value={form.date_started} onChange={set('date_started')} />
-      </Field>
-      <Field label="Date Finished">
-        <input type="date" value={form.date_finished} onChange={set('date_finished')} />
-      </Field>
-      <Field label="Cover URL">
-        <input value={form.cover_url} onChange={set('cover_url')} />
-      </Field>
-      <Field label="Notes">
-        <textarea rows={3} value={form.notes} onChange={set('notes')} />
-      </Field>
-      <Field label="Steam App ID">
-        <input type="number" value={form.steam_app_id} onChange={set('steam_app_id')} />
-      </Field>
-      <button type="submit" style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start' }}>
-        {submitLabel}
-      </button>
-    </form>
-  );
-}
 
-function Field({ label, children }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.9rem', fontWeight: 500 }}>
-      {label}
-      {children}
-    </label>
+      {/* Status pills */}
+      <div className={styles.field}>
+        Statut
+        <div className={styles.statusPills}>
+          {STATUSES.map(s => (
+            <button
+              key={s.value}
+              type="button"
+              className={`${styles.statusPill} ${form.status === s.value ? styles.active : ''}`}
+              style={{ '--pill-color': `var(--status-${s.value})` }}
+              onClick={() => setForm(f => ({ ...f, status: s.value }))}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Rating slider */}
+      <div className={styles.field}>
+        Note
+        <div className={styles.sliderRow}>
+          <input
+            className={styles.slider}
+            type="range"
+            min="0"
+            max="100"
+            value={form.rating ?? 0}
+            onChange={e => setForm(f => ({ ...f, rating: +e.target.value }))}
+          />
+          <span className={styles.ratingValue}>{form.rating ?? 0}</span>
+        </div>
+      </div>
+
+      {/* Hours */}
+      <label className={styles.field}>
+        Heures jouées
+        <input type="number" min="0" step="0.1" value={form.hours_played} onChange={set('hours_played')} />
+      </label>
+
+      {/* Dates on same line */}
+      <div className={styles.datesRow}>
+        <label className={styles.field}>
+          Commencé
+          <input type="date" value={form.date_started} onChange={set('date_started')} />
+        </label>
+        <label className={styles.field}>
+          Terminé
+          <input type="date" value={form.date_finished} onChange={set('date_finished')} />
+        </label>
+      </div>
+
+      {/* Notes */}
+      <label className={styles.field}>
+        Notes
+        <textarea rows={3} value={form.notes} onChange={set('notes')} />
+      </label>
+
+      {/* Details accordion */}
+      <div className={styles.accordion}>
+        <button
+          type="button"
+          className={styles.accordionToggle}
+          onClick={() => setDetailsOpen(o => !o)}
+        >
+          Détails {detailsOpen ? '▲' : '▼'}
+        </button>
+        {detailsOpen && (
+          <div className={styles.accordionContent}>
+            <label className={styles.field}>
+              Cover URL
+              <input value={form.cover_url} onChange={set('cover_url')} />
+            </label>
+            <label className={styles.field}>
+              Steam App ID
+              <input type="number" value={form.steam_app_id} onChange={set('steam_app_id')} />
+            </label>
+            <label className={styles.field}>
+              Genre
+              <input value={form.genre} onChange={set('genre')} />
+            </label>
+          </div>
+        )}
+      </div>
+
+      <button type="submit" className={styles.submitBtn}>{submitLabel}</button>
+    </form>
   );
 }
