@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { getGames, getStats, deleteGame, syncSteam, refreshMetadata } from '../api/client';
 import StatsPanel from '../components/StatsPanel';
 import GameCard from '../components/GameCard';
 import GameDetailSheet from '../components/GameDetailSheet';
+import styles from './HomePage.module.css';
 
 const ALL_STATUSES = ['backlog', 'playing', 'completed', 'dropped'];
 
@@ -12,17 +12,17 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [games, setGames] = useState([]);
   const [stats, setStats] = useState(null);
-  const [error, setError] = useState(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [backlogBtnText, setBacklogBtnText] = useState('Backlog Smart');
+  const [removingIds, setRemovingIds] = useState(new Set());
+  const [backlogBtnText, setBacklogBtnText] = useState('✦ IA Reco');
   const [fallbackPrompt, setFallbackPrompt] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatuses, setActiveStatuses] = useState(new Set(ALL_STATUSES));
   const [activeGenres, setActiveGenres] = useState(new Set());
-  const [showFilters, setShowFilters] = useState(false);
+  const [genreOpen, setGenreOpen] = useState(false);
+  const popoverRef = useRef(null);
 
   const reloadGames = async () => {
     const [g, s] = await Promise.all([getGames(), getStats()]);
@@ -32,8 +32,11 @@ export default function HomePage() {
 
   useEffect(() => {
     const load = async () => {
-      await syncSteam().catch(() => {});
-      await reloadGames().catch((err) => setError(err.message));
+      try {
+        await syncSteam().catch(() => {});
+        await reloadGames();
+      } catch { /* ignore */ }
+      setLoading(false);
       refreshMetadata().catch(() => {}).then(() => reloadGames().catch(() => {}));
     };
     load();
@@ -44,7 +47,6 @@ export default function HomePage() {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshMetadata().catch(() => {}).then(() => reloadGames().catch(() => {}));
     };
-
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
@@ -53,32 +55,28 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleDelete = async (id) => {
-    if (selectedGame?.id === id) setSelectedGame(null);
-    setGames((prev) => prev.filter((g) => g.id !== id));
-    try {
-      await deleteGame(id);
-      const s = await getStats();
-      setStats(s);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  // Close genre popover on click outside
+  useEffect(() => {
+    if (!genreOpen) return;
+    const handler = (e) => {
+      if (!popoverRef.current?.contains(e.target)) setGenreOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [genreOpen]);
 
-  const handleSteamSync = async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const result = await syncSteam();
-      setSyncMsg(result.message);
-      const [g, s] = await Promise.all([getGames(), getStats()]);
-      setGames(g);
-      setStats(s);
-    } catch (err) {
-      setSyncMsg(`Error: ${err.message}`);
-    } finally {
-      setSyncing(false);
-    }
+  const handleDelete = async (id) => {
+    setRemovingIds(s => new Set(s).add(id));
+    setTimeout(async () => {
+      try {
+        await deleteGame(id);
+        if (selectedGame?.id === id) setSelectedGame(null);
+        setGames(prev => prev.filter(g => g.id !== id));
+        setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
+        const st = await getStats();
+        setStats(st);
+      } catch { /* ignore */ }
+    }, 200);
   };
 
   const toggleStatus = (status) => {
@@ -97,26 +95,28 @@ export default function HomePage() {
     });
   };
 
+  const resetFilters = () => {
+    setSearchQuery('');
+    setActiveStatuses(new Set(ALL_STATUSES));
+    setActiveGenres(new Set());
+  };
+
   const buildPrompt = () => {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
     const monthsAgo = (dateStr) => {
       if (!dateStr) return '?';
       return Math.round((Date.now() - new Date(dateStr)) / (1000 * 60 * 60 * 24 * 30));
     };
-
     const recent = games.filter(g => g.status === 'completed' && g.date_finished && new Date(g.date_finished) >= sixMonthsAgo);
     const playing = games.filter(g => g.status === 'playing');
     const dropped = games.filter(g => g.status === 'dropped');
     const backlog = games
       .filter(g => g.status === 'backlog')
       .sort((a, b) => (b.metascore ?? 0) - (a.metascore ?? 0) || new Date(a.created_at) - new Date(b.created_at));
-
     const ratings = games.filter(g => g.rating != null).map(g => g.rating);
     const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : 'N/A';
     const totalHours = games.reduce((sum, g) => sum + (g.hours_played || 0), 0).toFixed(0);
-
     const genreCount = {};
     games.forEach(g => (g.genres || []).forEach(genre => { genreCount[genre] = (genreCount[genre] || 0) + 1; }));
     const topGenres = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
@@ -143,7 +143,7 @@ Recommande-moi mon prochain jeu.`;
     } catch {
       setFallbackPrompt(prompt);
     }
-    setTimeout(() => setBacklogBtnText('Backlog Smart'), 2000);
+    setTimeout(() => setBacklogBtnText('✦ IA Reco'), 2000);
   };
 
   const getGameGenres = (g) => g.genres?.length > 0 ? g.genres : (g.genre ? [g.genre] : []);
@@ -164,102 +164,100 @@ Recommande-moi mon prochain jeu.`;
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>My Games</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleBacklogSmart} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', cursor: 'pointer' }}>
-            {backlogBtnText}
-          </button>
-          <button onClick={handleSteamSync} disabled={syncing} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer' }}>
-            {syncing ? 'Syncing…' : 'Sync Steam'}
-          </button>
-          <Link to="/add" style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-            + Add Game
-          </Link>
+      {/* Toolbar: search + genre + reco */}
+      <div className={styles.toolbar}>
+        <div className={styles.searchWrap}>
+          <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className={styles.searchInput}
+            type="text"
+            placeholder="Rechercher jeux, genres, tags…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
-      </div>
 
-      {/* Search + Filters bar */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-        <input
-          type="text"
-          placeholder="Search games, genres, tags…"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          style={{ flex: 1, padding: '6px 12px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: '0.9rem' }}
-        />
-        <button
-          onClick={() => setShowFilters(p => !p)}
-          style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: showFilters ? '#2563eb' : '#fff', color: showFilters ? '#fff' : '#374151', cursor: 'pointer' }}
-        >
-          Filtres {showFilters ? '▲' : '▼'}
-        </button>
-      </div>
-
-      {showFilters && (
-        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-          <div style={{ marginBottom: 10 }}>
-            <strong style={{ fontSize: '0.85rem', color: '#374151' }}>Statuts</strong>
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-              {ALL_STATUSES.map(s => (
-                <button key={s} onClick={() => toggleStatus(s)}
-                  style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: '0.8rem',
-                           background: activeStatuses.has(s) ? '#2563eb' : '#fff',
-                           color: activeStatuses.has(s) ? '#fff' : '#374151', cursor: 'pointer' }}>
-                  {s}
-                </button>
+        <div className={styles.genreWrap} ref={popoverRef}>
+          <button
+            className={`${styles.genreBtn} ${activeGenres.size > 0 ? styles.genreBtnActive : ''}`}
+            onClick={() => setGenreOpen(p => !p)}
+          >
+            Genres {activeGenres.size > 0 ? `(${activeGenres.size})` : '▼'}
+          </button>
+          {genreOpen && (
+            <div className={styles.genrePopover}>
+              {availableGenres.map(genre => (
+                <label key={genre} className={styles.genreItem}>
+                  <input
+                    type="checkbox"
+                    checked={activeGenres.has(genre)}
+                    onChange={() => toggleGenre(genre)}
+                  />
+                  {genre}
+                </label>
               ))}
-            </div>
-          </div>
-          {availableGenres.length > 0 && (
-            <div>
-              <strong style={{ fontSize: '0.85rem', color: '#374151' }}>Genres {activeGenres.size > 0 && `(${activeGenres.size} actif)`}</strong>
               {activeGenres.size > 0 && (
-                <button onClick={() => setActiveGenres(new Set())}
-                  style={{ marginLeft: 8, fontSize: '0.75rem', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <button className={styles.genreReset} onClick={() => setActiveGenres(new Set())}>
                   Réinitialiser
                 </button>
               )}
-              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                {availableGenres.map(genre => (
-                  <button key={genre} onClick={() => toggleGenre(genre)}
-                    style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: '0.8rem',
-                             background: activeGenres.has(genre) ? '#2563eb' : '#fff',
-                             color: activeGenres.has(genre) ? '#fff' : '#374151', cursor: 'pointer' }}>
-                    {genre}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
         </div>
-      )}
 
+        <button className={styles.recoBtn} onClick={handleBacklogSmart}>
+          {backlogBtnText}
+          <span className={styles.recoTooltip}>Copier un prompt IA de recommandation</span>
+        </button>
+      </div>
+
+      {/* Fallback prompt textarea */}
       {fallbackPrompt && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>Copier ce prompt manuellement :</p>
-          <textarea
-            readOnly
-            value={fallbackPrompt}
-            onClick={e => e.target.select()}
-            style={{ width: '100%', height: 120, fontSize: '0.8rem', padding: 8, borderRadius: 6, border: '1px solid #e5e7eb', resize: 'vertical', boxSizing: 'border-box' }}
-          />
-          <button onClick={() => setFallbackPrompt(null)} style={{ fontSize: '0.8rem', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Fermer</button>
+        <div className={styles.fallbackPrompt}>
+          <p>Copier ce prompt manuellement :</p>
+          <textarea readOnly value={fallbackPrompt} onClick={e => e.target.select()} />
+          <button onClick={() => setFallbackPrompt(null)}>Fermer</button>
         </div>
       )}
 
-      {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
-      {syncMsg && <div style={{ color: '#16a34a', marginBottom: 12 }}>{syncMsg}</div>}
+      {/* Stats */}
+      <div className={styles.statsRow}>
+        <StatsPanel stats={stats} activeStatuses={activeStatuses} onToggle={toggleStatus} />
+      </div>
 
-      <StatsPanel stats={stats} />
-
-      {filteredGames.length === 0 ? (
-        <p style={{ color: '#6b7280' }}>
-          {games.length === 0 ? <><Link to="/add">Add one!</Link></> : 'Aucun jeu ne correspond aux filtres.'}
-        </p>
+      {/* Content */}
+      {loading ? (
+        <div className={styles.grid}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className={styles.skeleton} />
+          ))}
+        </div>
+      ) : filteredGames.length === 0 ? (
+        games.length === 0 ? (
+          <div className={styles.emptyState}>
+            <span>🎮</span>
+            <p>Bibliothèque vide</p>
+            <small>Ajoutez votre premier jeu pour commencer.</small>
+            <Link to="/add">+ Ajouter un jeu</Link>
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <p>Aucun jeu ne correspond.</p>
+            <button onClick={resetFilters}>Réinitialiser les filtres</button>
+          </div>
+        )
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {filteredGames.map((g) => <GameCard key={g.id} game={g} onDelete={handleDelete} onClick={() => setSelectedGame(g)} />)}
+        <div className={styles.grid}>
+          {filteredGames.map(g => (
+            <GameCard
+              key={g.id}
+              game={g}
+              onClick={() => setSelectedGame(g)}
+              removing={removingIds.has(g.id)}
+            />
+          ))}
         </div>
       )}
 
