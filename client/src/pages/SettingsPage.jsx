@@ -1,11 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
-import { getSettings, saveSettings, exportGames, importGames } from '../api/client';
+import { getSettings, saveSettings, exportGames, importGames, syncSteam } from '../api/client';
+import styles from './SettingsPage.module.css';
 
 export default function SettingsPage() {
   const [form, setForm] = useState({ rawg_key: '', steam_key: '', steam_id: '' });
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -27,6 +31,19 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSteamSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const result = await syncSteam();
+      setSyncMsg(result.message);
+    } catch (err) {
+      setSyncMsg(`Erreur : ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleExport = async () => {
     try {
       const games = await exportGames();
@@ -42,8 +59,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleImport = (e) => {
-    const file = e.target.files[0];
+  const handleFile = (file) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (ev) => {
@@ -56,57 +72,79 @@ export default function SettingsPage() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleImportInput = (e) => {
+    handleFile(e.target.files[0]);
     e.target.value = '';
   };
 
   return (
-    <div>
-      <h1>Settings</h1>
-      {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
-      {saved && <div style={{ color: '#16a34a', marginBottom: 12 }}>Settings saved.</div>}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }}>
-        <Field label="RAWG API Key">
-          <input type="password" value={form.rawg_key} onChange={set('rawg_key')} autoComplete="off" />
-        </Field>
-        <Field label="Steam API Key">
-          <input type="password" value={form.steam_key} onChange={set('steam_key')} autoComplete="off" />
-        </Field>
-        <Field label="Steam User ID">
-          <input value={form.steam_id} onChange={set('steam_id')} />
-        </Field>
-        <button type="submit" style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start' }}>
-          Save
-        </button>
-      </form>
+    <div className={styles.page}>
+      <h1 className={styles.title}>Paramètres</h1>
+      {error && <div className={styles.error}>{error}</div>}
+      {saved && <div className={styles.success}>Paramètres sauvegardés.</div>}
 
-      <hr style={{ margin: '24px 0', borderColor: '#e5e7eb' }} />
-
-      <h2 style={{ fontSize: '1.1rem', marginBottom: 12 }}>Import / Export</h2>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={handleExport}
-          style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-          Exporter (JSON)
-        </button>
-        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
-        <button onClick={() => fileRef.current.click()}
-          style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-          Importer
-        </button>
+      {/* API Keys */}
+      <div className={styles.section}>
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <label className={styles.field}>
+            Clé API RAWG
+            <input type="password" value={form.rawg_key} onChange={set('rawg_key')} autoComplete="off" />
+          </label>
+          <label className={styles.field}>
+            Clé API Steam
+            <input type="password" value={form.steam_key} onChange={set('steam_key')} autoComplete="off" />
+          </label>
+          <label className={styles.field}>
+            Steam User ID
+            <input value={form.steam_id} onChange={set('steam_id')} />
+          </label>
+          <button type="submit" className={styles.submitBtn}>Sauvegarder</button>
+        </form>
       </div>
-      {importResult && (
-        <p style={{ marginTop: 10, fontSize: '0.9rem', color: '#16a34a' }}>
-          {importResult.imported} jeux importés, {importResult.overwritten} écrasés.
-        </p>
-      )}
-    </div>
-  );
-}
 
-function Field({ label, children }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.9rem', fontWeight: 500 }}>
-      {label}
-      {children}
-    </label>
+      <hr className={styles.divider} />
+
+      {/* Sync */}
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Sync</h2>
+        <div className={styles.actions}>
+          <button className={styles.actionBtn} onClick={handleSteamSync} disabled={syncing}>
+            {syncing ? 'Synchronisation…' : 'Sync Steam'}
+          </button>
+        </div>
+        {syncMsg && <div className={styles.feedback}>{syncMsg}</div>}
+      </div>
+
+      <hr className={styles.divider} />
+
+      {/* Import / Export */}
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Import / Export</h2>
+        <div className={styles.actions}>
+          <button className={styles.actionBtn} onClick={handleExport}>Exporter (JSON)</button>
+        </div>
+
+        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportInput} />
+
+        <div
+          className={`${styles.dropZone} ${dragging ? styles.dragging : ''}`}
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
+          style={{ marginTop: 12 }}
+        >
+          <p>Glisser un fichier .json ici</p>
+          <button type="button" onClick={() => fileRef.current.click()}>ou parcourir</button>
+        </div>
+
+        {importResult && (
+          <div className={styles.feedback}>
+            {importResult.imported} jeux importés, {importResult.overwritten} écrasés.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
