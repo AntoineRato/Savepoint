@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchGames, createGame, getGameDetail, syncSteam } from '../api/client';
 import SearchResults from '../components/SearchResults';
 import GameForm from '../components/GameForm';
+import styles from './AddGamePage.module.css';
 
 export default function AddGamePage() {
   const navigate = useNavigate();
@@ -57,12 +58,15 @@ export default function AddGamePage() {
       if (detail?.publisher)         base.publisher    = detail.publisher;
       if (detail?.metascore != null) base.metascore    = detail.metascore;
       if (detail?.screenshots?.length) base.screenshots = detail.screenshots;
-    } catch {
-      // best-effort
-    }
+    } catch { /* best-effort */ }
 
     setSelected(base);
     setLoadingDetail(false);
+  };
+
+  const handleClear = () => {
+    setSelected(null);
+    setQuery('');
   };
 
   const handleKeyDown = (e) => {
@@ -84,7 +88,7 @@ export default function AddGamePage() {
   const handleSubmit = async (data) => {
     try {
       await createGame(data);
-      syncSteam().catch(() => {}); // best-effort, don't block navigation
+      syncSteam().catch(() => {});
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -92,45 +96,53 @@ export default function AddGamePage() {
   };
 
   return (
-    <div>
-      <h1>Add Game</h1>
-      {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
+    <div className={styles.page}>
+      <h1 className={styles.title}>Ajouter un jeu</h1>
+      {error && <div className={styles.error}>{error}</div>}
 
-      <div style={{ marginBottom: 20, maxWidth: 480 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500 }}>
-          Search RAWG
-          <div style={{ position: 'relative' }}>
-            <input
-              value={query}
-              onChange={handleQueryChange}
-              onKeyDown={handleKeyDown}
-              onFocus={() => results.length > 0 && setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 100)}
-              placeholder="Search for a game…"
-              style={{ width: '100%', boxSizing: 'border-box' }}
-              autoComplete="off"
-            />
-            {open && (
-              <SearchResults results={results} onSelect={handleSelect} activeIndex={activeIndex} />
-            )}
-          </div>
-        </label>
-      </div>
+      <label className={styles.searchLabel}>
+        Rechercher sur RAWG
+        <div className={styles.searchWrap}>
+          <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className={styles.searchInput}
+            value={query}
+            onChange={handleQueryChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 100)}
+            placeholder="Rechercher un jeu…"
+            autoComplete="off"
+          />
+          {open && (
+            <SearchResults results={results} onSelect={handleSelect} activeIndex={activeIndex} />
+          )}
+        </div>
+      </label>
 
-      {loadingDetail && <div style={{ color: '#6b7280', marginBottom: 12 }}>Fetching game details…</div>}
+      {loadingDetail && <div className={styles.loadingMsg}>Chargement des détails…</div>}
 
       {selected && !loadingDetail && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div className={styles.selectedGame}>
           {selected.cover_url && (
-            <img src={selected.cover_url} alt={selected.title} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} onError={(e) => { e.target.style.display = 'none'; }} />
+            <img className={styles.selectedThumb} src={selected.cover_url} alt={selected.title} />
           )}
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{selected.title}</div>
-            {selected.genre && <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{selected.genre}</div>}
-          </div>
+          <span className={styles.selectedTitle}>{selected.title}</span>
+          <button className={styles.clearBtn} onClick={handleClear} aria-label="Désélectionner">×</button>
         </div>
       )}
-      {!loadingDetail && <GameForm key={selected?.rawg_id ?? 'empty'} initial={selected || {}} onSubmit={handleSubmit} submitLabel="Add Game" hideTitle={!!selected} />}
+
+      {!loadingDetail && (
+        <GameForm
+          key={selected?.rawg_id ?? 'empty'}
+          initial={selected || {}}
+          onSubmit={handleSubmit}
+          submitLabel="Ajouter"
+          hideTitle={!!selected}
+        />
+      )}
     </div>
   );
 }
