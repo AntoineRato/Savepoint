@@ -23,5 +23,7 @@ export function ThemeProvider({ children }) {
 }
 
 export function useTheme() {
-  return useContext(ThemeContext);
+  const ctx = useContext(ThemeContext);
+  const toggle = () => ctx.setTheme(ctx.theme === 'dark' ? 'light' : 'dark');
+  return { theme: ctx.theme, setTheme: ctx.setTheme, toggle };
 }

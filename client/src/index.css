@@ -1,37 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-* {
-  margin: 0;
-}
-
-html, body, #root {
-  height: 100%;
-}
-
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg);
+  font-size: var(--text-base);
+  background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-width: 320px;
 }
-
-a {
-  text-decoration: none;
-  color: inherit;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
-input, textarea, select {
-  font-family: inherit;
-}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; }
