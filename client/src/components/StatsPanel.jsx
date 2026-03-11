@@ -7,7 +7,7 @@ export default function StatsPanel({ stats }) {
       <StatBox label="Completed" value={stats.by_status.completed} color="#16a34a" />
       <StatBox label="Backlog" value={stats.by_status.backlog} color="#6b7280" />
       <StatBox label="Dropped" value={stats.by_status.dropped} color="#dc2626" />
-      {stats.avg_rating != null && <StatBox label="Avg Rating" value={`${stats.avg_rating}/10`} />}
+      {stats.avg_rating != null && <StatBox label="Avg Rating" value={`${stats.avg_rating}/100`} />}
       {stats.total_hours != null && <StatBox label="Total Hours" value={`${stats.total_hours}h`} />}
       <StatBox label="Completed This Year" value={stats.completed_this_year} />
       <StatBox label="This Month" value={stats.completed_this_month} />

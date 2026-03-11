@@ -14,6 +14,7 @@ app.use('/api/stats', require('./routes/stats'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/steam', require('./routes/steam'));
+app.use('/api', require('./routes/importexport'));
 
 // Serve frontend in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

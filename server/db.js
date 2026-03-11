@@ -28,4 +28,19 @@ db.exec(`
   );
 `);
 
+const newColumns = [
+  'ALTER TABLE games ADD COLUMN genres           TEXT',
+  'ALTER TABLE games ADD COLUMN tags             TEXT',
+  'ALTER TABLE games ADD COLUMN release_date     TEXT',
+  'ALTER TABLE games ADD COLUMN developer        TEXT',
+  'ALTER TABLE games ADD COLUMN publisher        TEXT',
+  'ALTER TABLE games ADD COLUMN metascore        INTEGER',
+  'ALTER TABLE games ADD COLUMN screenshots      TEXT',
+  'ALTER TABLE games ADD COLUMN metadata_updated TEXT',
+];
+
+for (const sql of newColumns) {
+  try { db.exec(sql); } catch { /* column already exists */ }
+}
+
 module.exports = db;

@@ -31,3 +31,8 @@ export const getGameDetail = (rawgId) => request(`/search/detail/${rawgId}`);
 
 // Steam
 export const syncSteam = () => request('/steam/sync', { method: 'POST' });
+
+// Metadata & Import/Export
+export const refreshMetadata = () => request('/games/refresh-metadata', { method: 'POST' });
+export const exportGames = () => request('/export');
+export const importGames = (games) => request('/import', { method: 'POST', body: JSON.stringify(games) });

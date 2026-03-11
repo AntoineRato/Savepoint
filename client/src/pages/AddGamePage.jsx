@@ -50,6 +50,13 @@ export default function AddGamePage() {
     try {
       const detail = await getGameDetail(game.id);
       if (detail?.steam_app_id) base.steam_app_id = detail.steam_app_id;
+      if (detail?.genres?.length)    base.genres       = detail.genres;
+      if (detail?.tags?.length)      base.tags         = detail.tags;
+      if (detail?.release_date)      base.release_date = detail.release_date;
+      if (detail?.developer)         base.developer    = detail.developer;
+      if (detail?.publisher)         base.publisher    = detail.publisher;
+      if (detail?.metascore != null) base.metascore    = detail.metascore;
+      if (detail?.screenshots?.length) base.screenshots = detail.screenshots;
     } catch {
       // best-effort
     }

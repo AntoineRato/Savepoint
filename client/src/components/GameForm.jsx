@@ -33,6 +33,14 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
       cover_url: form.cover_url || null,
       steam_app_id: form.steam_app_id !== '' ? Number(form.steam_app_id) : null,
       rawg_id: form.rawg_id !== '' ? Number(form.rawg_id) : null,
+      // Enriched fields — passed through transparently, not editable in the form
+      genres:       initial.genres       ?? null,
+      tags:         initial.tags         ?? null,
+      release_date: initial.release_date ?? null,
+      developer:    initial.developer    ?? null,
+      publisher:    initial.publisher    ?? null,
+      metascore:    initial.metascore    ?? null,
+      screenshots:  initial.screenshots  ?? null,
     });
   };
 
@@ -51,8 +59,8 @@ export default function GameForm({ initial = {}, onSubmit, submitLabel = 'Save',
           {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
       </Field>
-      <Field label="Rating (1–10)">
-        <input type="number" min="1" max="10" value={form.rating} onChange={set('rating')} />
+      <Field label="Rating (1–100)">
+        <input type="number" min="1" max="100" value={form.rating} onChange={set('rating')} />
       </Field>
       <Field label="Hours Played">
         <input type="number" min="0" step="0.1" value={form.hours_played} onChange={set('hours_played')} />
